@@ -1,0 +1,2 @@
+# genetic
+An interactive web page that makes understanding genetic testing easy and accessible through a friendly AI assistant.
