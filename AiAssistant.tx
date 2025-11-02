@@ -1,0 +1,109 @@
+
+import React, { useState, useRef, useEffect } from 'react';
+import type { Message } from '../types';
+import { askAboutGenetics } from '../services/geminiService';
+import { LoadingSpinner } from './LoadingSpinner';
+
+const UserIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+
+const ModelIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+  </svg>
+);
+
+export const AiAssistant: React.FC = () => {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [input, setInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const chatEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, isLoading]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || isLoading) return;
+
+        const userMessage: Message = { role: 'user', text: input };
+        setMessages(prev => [...prev, userMessage]);
+        setInput('');
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const responseText = await askAboutGenetics(input);
+            const modelMessage: Message = { role: 'model', text: responseText };
+            setMessages(prev => [...prev, modelMessage]);
+        } catch (err) {
+            console.error(err);
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+            setError(`Sorry, I couldn't get a response. ${errorMessage}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg border border-slate-200">
+            <div className="h-[500px] overflow-y-auto p-4 sm:p-6 space-y-6">
+                {messages.length === 0 && !isLoading && (
+                     <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                        <ModelIcon />
+                        <p className="mt-2 text-center">Ask me anything about genetics!</p>
+                    </div>
+                )}
+                {messages.map((msg, index) => (
+                    <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                        {msg.role === 'model' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 text-white flex items-center justify-center"><ModelIcon /></div>}
+                        <div className={`max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-100 text-slate-800 rounded-bl-none'}`}>
+                           <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                        </div>
+                        {msg.role === 'user' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center"><UserIcon /></div>}
+                    </div>
+                ))}
+                 {isLoading && (
+                    <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-500 text-white flex items-center justify-center"><ModelIcon /></div>
+                        <div className="max-w-md p-3 rounded-2xl bg-slate-100 text-slate-800 rounded-bl-none">
+                            <LoadingSpinner />
+                        </div>
+                    </div>
+                )}
+                {error && <p className="text-red-500 text-center">{error}</p>}
+                <div ref={chatEndRef} />
+            </div>
+            <div className="border-t border-slate-200 p-4">
+                <form onSubmit={handleSubmit} className="flex items-center gap-3">
+                    <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Type your question here..."
+                        className="flex-1 w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                        disabled={isLoading}
+                    />
+                    <button
+                        type="submit"
+                        disabled={isLoading || !input.trim()}
+                        className="flex-shrink-0 bg-blue-600 text-white rounded-full h-10 w-10 flex items-center justify-center hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+};
